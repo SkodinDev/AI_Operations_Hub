@@ -1,0 +1,473 @@
+```html
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>AI Operations Hub</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- Dashboard Statistics -->
+
+        <div class="stats">
+
+            <div class="stat-card">
+                <h2>Total Tickets</h2>
+                <p id="total-tickets">Loading...</p>
+            </div>
+
+            <div class="stat-card">
+                <h2>Open Tickets</h2>
+                <p id="open-tickets">Loading...</p>
+            </div>
+
+            <div class="stat-card">
+                <h2>Resolved Tickets</h2>
+                <p id="resolved-tickets">Loading...</p>
+            </div>
+
+        </div>
+
+
+        <!-- Page Header -->
+
+        <h1>AI Operations Hub</h1>
+
+        <p class="subtitle">
+            Manage and monitor your customer support operations.
+        </p>
+
+
+        <!-- Ticket Management -->
+
+        <div class="card">
+
+            <h2>Ticket Management</h2>
+
+            <input
+                type="text"
+                id="customer"
+                placeholder="Customer name"
+            >
+
+            <br><br>
+
+            <input
+                type="text"
+                id="issue"
+                placeholder="Customer issue"
+            >
+
+            <br><br>
+
+            <button onclick="createTicket()">
+                Create Ticket
+            </button>
+
+            <button onclick="loadTickets()">
+                View Tickets
+            </button>
+
+            <div id="tickets"></div>
+
+        </div>
+
+
+        <!-- AI Assistant -->
+
+        
+<div class="card">
+    <h2>🤖 AI Assistant</h2>
+
+    <p>Ask the AI assistant for help.</p>
+
+    <div id="chat-box">
+        <div class="ai-message">
+            <strong>AI:</strong> Hello! How can I help you?
+        </div>
+    </div>
+
+    <input
+        type="text"
+        id="ai-question"
+        placeholder="Ask something..."
+        onkeydown="if(event.key === 'Enter') askAI()"
+    >
+
+    <button onclick="askAI()">
+        Ask AI
+    </button>
+</div>
+
+
+    <!-- JavaScript -->
+
+    <script>
+
+        function escapeHTML(value) {
+            return String(value)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        async function loadTickets() {
+
+            console.log("loadTickets is running");
+
+            const response = await fetch("/tickets");
+
+            const tickets = await response.json();
+
+            const ticketsDiv =
+                document.getElementById("tickets");
+
+            ticketsDiv.innerHTML = "";
+
+            if (tickets.length === 0) {
+
+                ticketsDiv.innerHTML =
+                    "<p>No tickets found.</p>";
+
+                return;
+            }
+
+            tickets.forEach(ticket => {
+
+                ticketsDiv.innerHTML += `
+
+                    <div class="card">
+
+                        <h3>
+                            Ticket #${escapeHTML(ticket.id)}
+                        </h3>
+
+                        <p>
+                            <strong>Customer:</strong>
+                            ${escapeHTML(ticket.customer)}
+                        </p>
+
+                        <p>
+                            <strong>Issue:</strong>
+                            ${escapeHTML(ticket.issue)}
+                        </p>
+
+                       <p>
+    <strong>Status:</strong>
+
+    <select
+        onchange="changeStatus(${ticket.id}, this.value)"
+    >
+        <option
+            value="Open"
+            ${ticket.status === "Open" ? "selected" : ""}
+        >
+            Open
+        </option>
+
+        <option
+            value="Resolved"
+            ${ticket.status === "Resolved" ? "selected" : ""}
+        >
+            Resolved
+        </option>
+    </select>
+</p>
+
+<button
+    onclick="updateTicket(${ticket.id})"
+>
+    Update
+</button>
+
+                        <button
+                            onclick="deleteTicket(${ticket.id})"
+                        >
+                            Delete
+                        </button>
+
+
+                        
+                        <button
+                           onclick="summarizeTicket(${ticket.id})"
+                        >
+                           🤖 AI Summary
+                        </button>
+
+                    </div>
+
+                `;
+
+            });
+
+        }
+
+
+        
+
+
+
+
+
+
+
+
+        async function createTicket() {
+
+            const customer =
+                document.getElementById("customer").value;
+
+            const issue =
+                document.getElementById("issue").value;
+
+            const response = await fetch("/tickets", {
+
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    customer: customer,
+                    issue: issue
+                })
+
+            });
+
+            const result = await response.json();
+
+            console.log(result);
+
+            document.getElementById("customer").value = "";
+
+            document.getElementById("issue").value = "";
+
+            loadTickets();
+
+            loadStats();
+
+        }
+
+
+        async function deleteTicket(ticketId) {
+
+            const response =
+                await fetch(`/tickets/${ticketId}`, {
+
+                    method: "DELETE"
+
+                });
+
+            const result = await response.json();
+
+            console.log(result);
+
+            loadTickets();
+
+            loadStats();
+
+        }
+
+
+        async function updateTicket(ticketId) {
+
+    const customer =
+        prompt("Enter customer name:");
+
+    const issue =
+        prompt("Enter customer issue:");
+
+    const status =
+        prompt("Enter status (Open or Resolved):", "Open");
+
+    if (!customer || !issue || !status) {
+        return;
+    }
+
+    const response =
+        await fetch(`/tickets/${ticketId}`, {
+
+            method: "PUT",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+
+                customer: customer,
+
+                issue: issue,
+
+                status: status
+
+            })
+
+        });
+
+    const result = await response.json();
+
+    console.log(result);
+
+    loadTickets();
+
+    loadStats();
+}
+
+
+        async function changeStatus(ticketId, status) {
+
+    const response = await fetch(
+        `/tickets/${ticketId}/status`,
+        {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ status: status })
+        }
+    );
+
+    const result = await response.json();
+
+    console.log(result);
+
+    loadTickets();
+    loadStats();
+}
+        
+
+
+        async function loadStats() {
+
+            const response =
+                await fetch("/stats");
+
+            const stats =
+                await response.json();
+
+            document.getElementById("total-tickets")
+                .textContent = stats.total_tickets;
+
+            document.getElementById("open-tickets")
+                .textContent = stats.open_tickets;
+
+            document.getElementById("resolved-tickets")
+                .textContent = stats.resolved_tickets;
+
+        }
+
+
+        // Load dashboard statistics when page opens
+
+        loadStats();
+
+
+
+
+async function askAI() {
+    const input = document.getElementById("ai-question");
+    const chatBox = document.getElementById("chat-box");
+
+    const question = input.value.trim();
+
+    if (!question) {
+        return;
+    }
+
+    // Show the user's question
+            chatBox.innerHTML += `
+        <div class="user-message">
+            <strong>You:</strong> ${escapeHTML(question)}
+        </div>
+    `;
+
+    // Clear the input
+    input.value = "";
+
+    // Show thinking message
+    chatBox.innerHTML += `
+        <div class="ai-message" id="thinking">
+            <strong>AI:</strong> Thinking...
+        </div>
+    `;
+
+    try {
+        const response = await fetch(
+            `/ask-ai?question=${encodeURIComponent(question)}`
+        );
+
+        const result = await response.json();
+
+        // Remove "Thinking..."
+        document.getElementById("thinking").remove();
+
+        // Show AI response
+        chatBox.innerHTML += `
+            <div class="ai-message">
+                <strong>AI:</strong> ${escapeHTML(result.answer)}
+            </div>
+        `;
+
+        // Scroll to the newest message
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+    } catch (error) {
+        document.getElementById("thinking").remove();
+
+        chatBox.innerHTML += `
+            <div class="ai-message">
+                <strong>AI:</strong> Sorry, something went wrong.
+            </div>
+        `;
+
+        console.error(error);
+    }
+}
+
+
+async function summarizeTicket(ticketId) {
+
+    try {
+
+        const response = await fetch(
+            `/tickets/${ticketId}/ai-summary`
+        );
+
+        const result = await response.json();
+
+        if (result.ai_summary) {
+            alert(result.ai_summary);
+        } else {
+            alert(result.message || "Unable to summarize ticket.");
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert("Something went wrong while getting the AI summary.");
+    }
+}
+
+
+
+
+loadStats();
+loadTickets();
+
+</script>
+
+
+</body>
+
+</html>
+```
